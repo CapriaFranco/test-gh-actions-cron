@@ -1,22 +1,25 @@
 name: Super Fast Scraper
 on:
   schedule:
-    - cron: '* * * * *' # Cada minuto
-  workflow_dispatch:
+    - cron: '* * * * *' # Se ejecutará cada 5-7 min aprox (límite de GH)
+  workflow_dispatch:   # Esto activa el botón para probarlo a mano
 
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          
       - name: Install dependencies
         run: pip install requests firebase-admin
+        
       - name: Run Scraper
         run: python scraper.py
         env:
-          # Aquí tendrías que manejar el archivo JSON de Firebase como un Secret
-          FIREBASE_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # IMPORTANTE: Esto mapea el Secret al entorno del script
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

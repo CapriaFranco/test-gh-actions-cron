@@ -7,7 +7,18 @@ import os
 # Configuración de Firebase (usando variables de entorno por seguridad)
 # Debes descargar tu archivo .json de Firebase y poner su contenido en un Secret de GitHub
 if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")
+    if not firebase_admin._apps:
+        # 1. Intentar leer desde el Secret de GitHub (Variable de Entorno)
+        sec_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
+        
+        if sec_json:
+            # Si existe el secret, creamos un diccionario desde el string JSON
+            cred_dict = json.loads(sec_json)
+            cred = credentials.Certificate(cred_dict)
+        else:
+            # 2. Si no hay secret, buscar el archivo local (para cuando pruebas en tu PC)
+            cred = credentials.Certificate("serviceAccountKey.json")
+            
     firebase_admin.initialize_app(cred, {
         'databaseURL': 'https://test-gh-actions-cron-default-rtdb.firebaseio.com/'
     })
