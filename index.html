@@ -41,7 +41,14 @@
         import { getDatabase, ref, query, limitToLast, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
-            databaseURL: "https://test-gh-actions-cron-default-rtdb.firebaseio.com/"
+            apiKey: "AIzaSyAO2wjB5eWNO1K5nKX4qTAyBwf9JXhM6kY",
+            authDomain: "test-gh-actions-cron.firebaseapp.com",
+            databaseURL: "https://test-gh-actions-cron-default-rtdb.firebaseio.com",
+            projectId: "test-gh-actions-cron",
+            storageBucket: "test-gh-actions-cron.firebasestorage.app",
+            messagingSenderId: "647266968675",
+            appId: "1:647266968675:web:8f5fb41bba2f8d7821c456",
+            measurementId: "G-1BDCCPBSLJ"
         };
 
         const app = initializeApp(firebaseConfig);
