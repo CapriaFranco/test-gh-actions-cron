@@ -3,6 +3,7 @@ import firebase_admin
 from firebase_admin import credentials, db
 import time
 import os
+import json
 
 # Configuración de Firebase (usando variables de entorno por seguridad)
 # Debes descargar tu archivo .json de Firebase y poner su contenido en un Secret de GitHub
