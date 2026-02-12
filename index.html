@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>BTC Tracker Realtime</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { max-width: 800px; width: 100%; }
+        .price-card { background: #1e293b; padding: 2rem; border-radius: 1rem; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        #current-price { font-size: 4rem; font-weight: bold; color: #22c55e; margin: 10px 0; }
+        .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .chart-container, .history-container { background: #1e293b; padding: 1.5rem; border-radius: 1rem; height: 300px; }
+        #history-list { list-style: none; padding: 0; overflow-y: auto; height: 230px; font-family: monospace; }
+        #history-list li { padding: 8px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; }
+        .timestamp { color: #94a3b8; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="price-card">
+            <h2>Bitcoin / USDT</h2>
+            <div id="current-price">---</div>
+            <div id="status">Esperando al robot de GitHub...</div>
+        </div>
+
+        <div class="grid">
+            <div class="chart-container">
+                <canvas id="myChart"></canvas>
+            </div>
+            <div class="history-container">
+                <h3>Historial</h3>
+                <ul id="history-list"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, query, limitToLast, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            databaseURL: "https://test-gh-actions-cron-default-rtdb.firebaseio.com/"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        // Configuración de la Gráfica
+        const ctx = document.getElementById('myChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Precio BTC', data: [], borderColor: '#22c55e', tension: 0.4 }] },
+            options: { maintainAspectRatio: false, scales: { y: { grid: { color: '#334155' } } } }
+        });
+
+        // Escuchar los últimos 20 registros
+        const pricesRef = query(ref(db, 'prices'), limitToLast(20));
+
+        onValue(pricesRef, (snapshot) => {
+            const historyList = document.getElementById('history-list');
+            const priceDisplay = document.getElementById('current-price');
+            historyList.innerHTML = ""; // Limpiar lista
+            
+            let labels = [];
+            let prices = [];
+
+            snapshot.forEach((child) => {
+                const val = child.val();
+                const time = new Date(val.timestamp).toLocaleTimeString();
+                
+                // Actualizar Lista
+                const li = document.createElement('li');
+                li.innerHTML = `<span>$${val.price}</span> <span class="timestamp">${time}</span>`;
+                historyList.prepend(li);
+
+                // Preparar datos para gráfica
+                labels.push(time);
+                prices.push(val.price);
+                
+                // El último del loop es el precio actual
+                priceDisplay.innerText = `$${val.price}`;
+            });
+
+            // Actualizar Gráfica
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = prices;
+            chart.update();
+            
+            document.getElementById('status').innerText = "Sincronizado con Firebase";
+        });
+    </script>
+</body>
+</html>
