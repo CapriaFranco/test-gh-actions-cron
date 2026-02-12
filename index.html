@@ -2,100 +2,228 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>BTC Tracker Realtime</title>
+    <title>BTC Tracker | Minimalist</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .container { max-width: 800px; width: 100%; }
-        .price-card { background: #1e293b; padding: 2rem; border-radius: 1rem; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        #current-price { font-size: 4rem; font-weight: bold; color: #22c55e; margin: 10px 0; }
-        .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
-        .chart-container, .history-container { background: #1e293b; padding: 1.5rem; border-radius: 1rem; height: 300px; }
-        #history-list { list-style: none; padding: 0; overflow-y: auto; height: 230px; font-family: monospace; }
-        #history-list li { padding: 8px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; }
-        .timestamp { color: #94a3b8; font-size: 0.8rem; }
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --accent: #22c55e;
+            --muted: #64748b;
+            --border: #334155;
+        }
+
+        body { 
+            font-family: 'Inter', 'Segoe UI', sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 20px; 
+            margin: 0; 
+        }
+
+        .container { max-width: 700px; width: 100%; }
+
+        /* Estructura Vertical Minimalista */
+        .section { 
+            background: var(--card); 
+            padding: 1.5rem; 
+            border-radius: 1rem; 
+            border: 1px solid var(--border); 
+            margin-bottom: 20px;
+        }
+
+        /* Header de Precio */
+        .price-header { text-align: center; border: none; background: transparent; }
+        .label { text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.5rem; }
+        #current-price { font-size: 4rem; font-weight: 800; color: var(--accent); margin: 0; letter-spacing: -0.04em; }
+
+        /* Stats Rápidos */
+        .stats-row { display: flex; justify-content: center; gap: 15px; margin-top: 10px; }
+        .stat-badge { font-size: 0.85rem; font-weight: 500; color: var(--muted); }
+        .stat-badge span { color: var(--text); }
+
+        /* Gráfico a pantalla completa en el contenedor */
+        .chart-container { height: 300px; }
+
+        /* Filtros Neutros */
+        .time-filters { display: flex; gap: 8px; justify-content: center; margin-bottom: 20px; }
+        .filter-btn { 
+            background: var(--card); border: 1px solid var(--border); color: var(--muted); 
+            padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; transition: 0.2s;
+            display: none; /* Se activan dinámicamente */
+        }
+        .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(34, 197, 94, 0.05); }
+
+        /* Historial y Contadores */
+        .api-counters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+        .api-tag { font-size: 0.7rem; color: var(--muted); background: var(--bg); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); }
+
+        #history-list { list-style: none; padding: 0; margin: 0; }
+        #history-list li { 
+            padding: 12px 0; border-bottom: 1px solid var(--border); 
+            display: flex; justify-content: space-between; align-items: center; 
+        }
+        #history-list li:last-child { border: none; }
+
+        .origin-tag { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
+        .tcm { background: #6366f1; color: white; }
+        .ghac { background: #f59e0b; color: white; }
+        .timestamp { color: var(--muted); font-size: 0.75rem; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <div class="price-card">
-            <h2>Bitcoin / USDT</h2>
+        <div class="section price-header">
+            <div class="label">Bitcoin Market Realtime</div>
             <div id="current-price">---</div>
-            <div id="status">Esperando al robot de GitHub...</div>
+            <div class="stats-row">
+                <div class="stat-badge">HIGHT: <span id="max-price">0</span></div>
+                <div class="stat-badge">LOW: <span id="min-price">0</span></div>
+            </div>
         </div>
 
-        <div class="grid">
-            <div class="chart-container">
-                <canvas id="myChart"></canvas>
-            </div>
-            <div class="history-container">
-                <h3>Historial</h3>
-                <ul id="history-list"></ul>
-            </div>
+        <div class="time-filters" id="filters">
+            <button class="filter-btn active" data-hours="0" id="btn-all">HISTORIC</button>
+            <button class="filter-btn" data-hours="24" id="btn-24h">24H</button>
+            <button class="filter-btn" data-hours="72" id="btn-3d">3D</button>
+            <button class="filter-btn" data-hours="168" id="btn-7d">7D</button>
+        </div>
+
+        <div class="section chart-container">
+            <canvas id="myChart"></canvas>
+        </div>
+
+        <div class="section">
+            <div class="api-counters" id="api-counts"></div>
+            <ul id="history-list"></ul>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, query, limitToLast, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, query, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAO2wjB5eWNO1K5nKX4qTAyBwf9JXhM6kY",
             authDomain: "test-gh-actions-cron.firebaseapp.com",
             databaseURL: "https://test-gh-actions-cron-default-rtdb.firebaseio.com",
-            projectId: "test-gh-actions-cron",
-            storageBucket: "test-gh-actions-cron.firebasestorage.app",
-            messagingSenderId: "647266968675",
-            appId: "1:647266968675:web:8f5fb41bba2f8d7821c456",
-            measurementId: "G-1BDCCPBSLJ"
+            projectId: "test-gh-actions-cron"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         
-        // Configuración de la Gráfica
+        let allData = [];
+        let currentFilterHours = 0;
+
         const ctx = document.getElementById('myChart').getContext('2d');
         const chart = new Chart(ctx, {
             type: 'line',
-            data: { labels: [], datasets: [{ label: 'Precio BTC', data: [], borderColor: '#22c55e', tension: 0.4 }] },
-            options: { maintainAspectRatio: false, scales: { y: { grid: { color: '#334155' } } } }
+            data: { labels: [], datasets: [{ data: [], borderColor: '#22c55e', borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false }] },
+            options: { 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: { 
+                    y: { position: 'right', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+                    x: { display: false }
+                } 
+            }
         });
 
-        // Escuchar los últimos 20 registros
-        const pricesRef = query(ref(db, 'prices'), limitToLast(20));
-
-        onValue(pricesRef, (snapshot) => {
-            const historyList = document.getElementById('history-list');
-            const priceDisplay = document.getElementById('current-price');
-            historyList.innerHTML = ""; // Limpiar lista
-            
-            let labels = [];
-            let prices = [];
+        onValue(ref(db, 'prices'), (snapshot) => {
+            allData = [];
+            const now = Date.now();
+            let firstDate = now;
 
             snapshot.forEach((child) => {
                 const val = child.val();
-                const time = new Date(val.timestamp).toLocaleTimeString();
-                
-                // Actualizar Lista
-                const li = document.createElement('li');
-                li.innerHTML = `<span>$${val.price}</span> <span class="timestamp">${time}</span>`;
-                historyList.prepend(li);
-
-                // Preparar datos para gráfica
-                labels.push(time);
-                prices.push(val.price);
-                
-                // El último del loop es el precio actual
-                priceDisplay.innerText = `$${val.price}`;
+                allData.push(val);
+                if(val.timestamp < firstDate) firstDate = val.timestamp;
             });
 
-            // Actualizar Gráfica
-            chart.data.labels = labels;
-            chart.data.datasets[0].data = prices;
-            chart.update();
+            updateUI(firstDate);
+        });
+
+        function updateUI(firstRecordTime) {
+            const now = Date.now();
+            const elapsedHours = (now - firstRecordTime) / (1000 * 60 * 60);
+
+            document.getElementById('btn-all').style.display = 'block';
+            if(elapsedHours >= 24) document.getElementById('btn-24h').style.display = 'block';
+            if(elapsedHours >= 72) document.getElementById('btn-3d').style.display = 'block';
+            if(elapsedHours >= 168) document.getElementById('btn-7d').style.display = 'block';
+
+            filterAndRender();
+        }
+
+        function filterAndRender() {
+            const now = Date.now();
+            const filtered = currentFilterHours === 0 
+                ? allData 
+                : allData.filter(d => (now - d.timestamp) <= (currentFilterHours * 60 * 60 * 1000));
+
+            const lastItems = filtered.slice(-25);
             
-            document.getElementById('status').innerText = "Sincronizado con Firebase";
+            if(filtered.length > 0) {
+                const lastEntry = filtered[filtered.length - 1];
+                const pricesOnly = filtered.map(d => d.price);
+                
+                document.getElementById('current-price').innerText = `$${lastEntry.price.toLocaleString()}`;
+                document.getElementById('max-price').innerText = `$${Math.max(...pricesOnly).toLocaleString()}`;
+                document.getElementById('min-price').innerText = `$${Math.min(...pricesOnly).toLocaleString()}`;
+            }
+
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = "";
+            lastItems.reverse().forEach(val => {
+                const time = new Date(val.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const origin = val.device_origin || 'ghac';
+                
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div>
+                        <span style="font-weight: 600;">$${val.price.toLocaleString()}</span>
+                        <span class="origin-tag ${origin}">${origin}</span>
+                    </div>
+                    <div style="text-align: right">
+                        <div class="timestamp">${time}</div>
+                        <div style="font-size: 0.65rem; color: var(--muted)">${val.api_source || 'API'}</div>
+                    </div>
+                `;
+                historyList.appendChild(li);
+            });
+
+            chart.data.labels = lastItems.reverse().map(d => "");
+            chart.data.datasets[0].data = lastItems.map(d => d.price);
+            chart.update();
+
+            renderApiCounters();
+        }
+
+        function renderApiCounters() {
+            let counts = {};
+            allData.forEach(d => {
+                let a = d.api_source || 'Unknown';
+                counts[a] = (counts[a] || 0) + 1;
+            });
+            const container = document.getElementById('api-counts');
+            container.innerHTML = Object.entries(counts).map(([name, count]) => 
+                `<span class="api-tag">${name}: ${count}</span>`
+            ).join('');
+        }
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.onclick = (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilterHours = parseInt(e.target.dataset.hours);
+                filterAndRender();
+            };
         });
     </script>
 </body>
