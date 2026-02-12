@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>BTC Tracker | Minimalist</title>
+    <title>BTC Tracker | Elite Analytics</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -12,10 +12,12 @@
             --accent: #22c55e;
             --muted: #64748b;
             --border: #334155;
+            --up: #22c55e;
+            --down: #ef4444;
         }
 
         body { 
-            font-family: 'Inter', 'Segoe UI', sans-serif; 
+            font-family: 'Inter', sans-serif; 
             background: var(--bg); 
             color: var(--text); 
             display: flex; 
@@ -25,9 +27,8 @@
             margin: 0; 
         }
 
-        .container { max-width: 700px; width: 100%; }
+        .container { max-width: 900px; width: 100%; }
 
-        /* Estructura Vertical Minimalista */
         .section { 
             background: var(--card); 
             padding: 1.5rem; 
@@ -36,29 +37,23 @@
             margin-bottom: 20px;
         }
 
-        /* Header de Precio */
         .price-header { text-align: center; border: none; background: transparent; }
-        .label { text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.5rem; }
+        .label { text-transform: uppercase; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; }
         #current-price { font-size: 4rem; font-weight: 800; color: var(--accent); margin: 0; letter-spacing: -0.04em; }
 
-        /* Stats Rápidos */
         .stats-row { display: flex; justify-content: center; gap: 15px; margin-top: 10px; }
         .stat-badge { font-size: 0.85rem; font-weight: 500; color: var(--muted); }
         .stat-badge span { color: var(--text); }
 
-        /* Gráfico a pantalla completa en el contenedor */
-        .chart-container { height: 300px; }
+        .chart-container { height: 380px; } /* Un poco más alto para el tooltip */
 
-        /* Filtros Neutros */
         .time-filters { display: flex; gap: 8px; justify-content: center; margin-bottom: 20px; }
         .filter-btn { 
             background: var(--card); border: 1px solid var(--border); color: var(--muted); 
-            padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; transition: 0.2s;
-            display: none; /* Se activan dinámicamente */
+            padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; display: none;
         }
         .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(34, 197, 94, 0.05); }
 
-        /* Historial y Contadores */
         .api-counters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
         .api-tag { font-size: 0.7rem; color: var(--muted); background: var(--bg); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); }
 
@@ -67,11 +62,9 @@
             padding: 12px 0; border-bottom: 1px solid var(--border); 
             display: flex; justify-content: space-between; align-items: center; 
         }
-        #history-list li:last-child { border: none; }
-
-        .origin-tag { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
-        .tcm { background: #6366f1; color: white; }
-        .ghac { background: #f59e0b; color: white; }
+        .origin-tag { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 700; color: white; }
+        .tcm { background: #6366f1; }
+        .ghac { background: #f59e0b; }
         .timestamp { color: var(--muted); font-size: 0.75rem; }
     </style>
 </head>
@@ -106,7 +99,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, query, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAO2wjB5eWNO1K5nKX4qTAyBwf9JXhM6kY",
@@ -117,20 +110,75 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        
         let allData = [];
         let currentFilterHours = 0;
 
         const ctx = document.getElementById('myChart').getContext('2d');
         const chart = new Chart(ctx, {
             type: 'line',
-            data: { labels: [], datasets: [{ data: [], borderColor: '#22c55e', borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false }] },
+            data: { 
+                labels: [], 
+                datasets: [{ 
+                    data: [], 
+                    borderWidth: 3, 
+                    pointRadius: 5,
+                    pointHoverRadius: 9, // Aumentado para mejor tacto
+                    tension: 0.1, 
+                    fill: false,
+                    segment: {
+                        borderColor: ctx => {
+                            const p1 = ctx.p0.parsed.y;
+                            const p2 = ctx.p1.parsed.y;
+                            return p2 >= p1 ? '#22c55e' : '#ef4444';
+                        }
+                    },
+                    pointBackgroundColor: (context) => {
+                        const index = context.dataIndex;
+                        const value = context.dataset.data[index];
+                        const prev = context.dataset.data[index - 1];
+                        if (index === 0) return '#64748b';
+                        return value >= prev ? '#22c55e' : '#ef4444';
+                    },
+                    pointBorderColor: '#1e293b'
+                }] 
+            },
             options: { 
                 maintainAspectRatio: false, 
-                plugins: { legend: { display: false } },
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        backgroundColor: '#1e293b',
+                        titleFont: { size: 16, weight: 'bold' },
+                        bodyFont: { size: 14 },
+                        padding: 15,
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        displayColors: false,
+                        callbacks: {
+                            title: (items) => `Horario: ${items[0].label}`,
+                            label: function(context) {
+                                const val = context.parsed.y;
+                                const prev = context.dataset.data[context.dataIndex - 1];
+                                let lines = [`Precio: $${val.toLocaleString()}`];
+                                
+                                if(prev !== undefined) {
+                                    const diff = val - prev;
+                                    const perc = ((diff / prev) * 100).toFixed(2);
+                                    const sign = diff >= 0 ? '+' : '';
+                                    // El "cartelito" ahora tiene la info extra que pediste
+                                    lines.push(`Variación: ${sign}${perc}% (${sign}${Math.round(diff)})`);
+                                } else {
+                                    lines.push('Variación: ---');
+                                }
+                                return lines;
+                            }
+                        }
+                    }
+                },
                 scales: { 
                     y: { position: 'right', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
-                    x: { display: false }
+                    x: { display: true, grid: { display: false }, ticks: { color: '#64748b', font: { size: 9 }, maxRotation: 0 } }
                 } 
             }
         });
@@ -139,25 +187,20 @@
             allData = [];
             const now = Date.now();
             let firstDate = now;
-
             snapshot.forEach((child) => {
                 const val = child.val();
                 allData.push(val);
                 if(val.timestamp < firstDate) firstDate = val.timestamp;
             });
-
             updateUI(firstDate);
         });
 
         function updateUI(firstRecordTime) {
-            const now = Date.now();
-            const elapsedHours = (now - firstRecordTime) / (1000 * 60 * 60);
-
+            const elapsedHours = (Date.now() - firstRecordTime) / (1000 * 60 * 60);
             document.getElementById('btn-all').style.display = 'block';
             if(elapsedHours >= 24) document.getElementById('btn-24h').style.display = 'block';
             if(elapsedHours >= 72) document.getElementById('btn-3d').style.display = 'block';
             if(elapsedHours >= 168) document.getElementById('btn-7d').style.display = 'block';
-
             filterAndRender();
         }
 
@@ -167,28 +210,28 @@
                 ? allData 
                 : allData.filter(d => (now - d.timestamp) <= (currentFilterHours * 60 * 60 * 1000));
 
-            const lastItems = filtered.slice(-25);
+            const lastItems = filtered.slice(-20);
             
             if(filtered.length > 0) {
                 const lastEntry = filtered[filtered.length - 1];
                 const pricesOnly = filtered.map(d => d.price);
+                document.getElementById('current-price').innerText = `$${Math.round(lastEntry.price).toLocaleString()}`;
+                document.getElementById('max-price').innerText = `$${Math.round(Math.max(...pricesOnly)).toLocaleString()}`;
+                document.getElementById('min-price').innerText = `$${Math.round(Math.min(...pricesOnly)).toLocaleString()}`;
                 
-                document.getElementById('current-price').innerText = `$${lastEntry.price.toLocaleString()}`;
-                document.getElementById('max-price').innerText = `$${Math.max(...pricesOnly).toLocaleString()}`;
-                document.getElementById('min-price').innerText = `$${Math.min(...pricesOnly).toLocaleString()}`;
+                const prevEntry = filtered[filtered.length - 2];
+                document.getElementById('current-price').style.color = (prevEntry && lastEntry.price < prevEntry.price) ? '#ef4444' : '#22c55e';
             }
 
             const historyList = document.getElementById('history-list');
             historyList.innerHTML = "";
-            lastItems.reverse().forEach(val => {
+            lastItems.slice().reverse().forEach(val => {
                 const time = new Date(val.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                const origin = val.device_origin || 'ghac';
-                
                 const li = document.createElement('li');
                 li.innerHTML = `
                     <div>
-                        <span style="font-weight: 600;">$${val.price.toLocaleString()}</span>
-                        <span class="origin-tag ${origin}">${origin}</span>
+                        <span style="font-weight: 600;">$${Math.round(val.price).toLocaleString()}</span>
+                        <span class="origin-tag ${val.device_origin || 'ghac'}">${val.device_origin || 'ghac'}</span>
                     </div>
                     <div style="text-align: right">
                         <div class="timestamp">${time}</div>
@@ -198,21 +241,16 @@
                 historyList.appendChild(li);
             });
 
-            chart.data.labels = lastItems.reverse().map(d => "");
-            chart.data.datasets[0].data = lastItems.map(d => d.price);
+            chart.data.labels = lastItems.map(d => new Date(d.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
+            chart.data.datasets[0].data = lastItems.map(d => Math.round(d.price));
             chart.update();
-
             renderApiCounters();
         }
 
         function renderApiCounters() {
             let counts = {};
-            allData.forEach(d => {
-                let a = d.api_source || 'Unknown';
-                counts[a] = (counts[a] || 0) + 1;
-            });
-            const container = document.getElementById('api-counts');
-            container.innerHTML = Object.entries(counts).map(([name, count]) => 
+            allData.forEach(d => { let a = d.api_source || 'Old Data'; counts[a] = (counts[a] || 0) + 1; });
+            document.getElementById('api-counts').innerHTML = Object.entries(counts).map(([name, count]) => 
                 `<span class="api-tag">${name}: ${count}</span>`
             ).join('');
         }
