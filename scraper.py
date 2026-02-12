@@ -5,50 +5,61 @@ import time
 import os
 import json
 
-# Configuración de Firebase
+# --- Configuración de Firebase ---
 if not firebase_admin._apps:
     sec_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
-    if sec_json:
-        cred_dict = json.loads(sec_json)
-        cred = credentials.Certificate(cred_dict)
-    else:
-        cred = credentials.Certificate("serviceAccountKey.json")
-        
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': 'https://test-gh-actions-cron-default-rtdb.firebaseio.com/'
-    })
+    cred = credentials.Certificate(json.loads(sec_json)) if sec_json else credentials.Certificate("serviceAccountKey.json")
+    firebase_admin.initialize_app(cred, {'databaseURL': 'https://test-gh-actions-cron-default-rtdb.firebaseio.com/'})
 
-def get_crypto_price():
-    url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-    # Añadimos un Header para "engañar" un poco a Binance
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        data = response.json()
-        
-        if 'price' in data:
-            return float(data['price'])
-        else:
-            # ESTO ES CLAVE: Si falla, veremos en el log de GitHub qué respondió Binance
-            print(f"DEBUG - Respuesta completa de Binance: {data}")
-            return None
-    except Exception as e:
-        print(f"Error de conexión: {e}")
-        return None
+# --- Proveedores de Precios ---
+
+def get_from_coingecko():
+    url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+    res = requests.get(url, timeout=10).json()
+    return float(res['bitcoin']['usd'])
+
+def get_from_cryptocompare():
+    url = "https://min-api.cryptocompare.com/data/price?fsym=BTC&tsyms=USD"
+    res = requests.get(url, timeout=10).json()
+    return float(res['USD'])
+
+def get_from_kucoin():
+    url = "https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=BTC-USDT"
+    res = requests.get(url, timeout=10).json()
+    return float(res['data']['price'])
+
+# --- Lógica Robusta ---
+
+def get_robust_price():
+    # Lista de funciones a intentar
+    sources = [
+        ("CoinGecko", get_from_coingecko),
+        ("CryptoCompare", get_from_cryptocompare),
+        ("KuCoin", get_from_kucoin)
+    ]
+    
+    for name, func in sources:
+        try:
+            price = func()
+            print(f"✅ Precio obtenido de {name}: ${price}")
+            return price
+        except Exception as e:
+            print(f"❌ {name} falló: {e}")
+            continue # Salta a la siguiente fuente
+            
+    return None # Si todas fallan
 
 def upload_to_firebase():
-    price = get_crypto_price()
+    price = get_robust_price()
     if price:
-        ref = db.reference('prices')
-        ref.push({
+        db.reference('prices').push({
             'price': price,
-            'timestamp': int(time.time() * 1000)
+            'timestamp': int(time.time() * 1000),
+            'source': "Multi-API" # Opcional: para saber que funcionó el fallback
         })
-        print(f"Subido con éxito: ${price}")
+        print("Sincronización exitosa.")
     else:
-        print("No se pudo subir nada debido al error en la API.")
+        print("CRITICAL: Todas las fuentes fallaron.")
 
 if __name__ == "__main__":
     upload_to_firebase()
